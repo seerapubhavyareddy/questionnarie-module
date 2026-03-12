@@ -1,115 +1,82 @@
 # Questionnaire Module
 
-A comprehensive questionnaire management system for clinical trials, built with FastAPI (backend) and React (frontend).
+Clinical-trial questionnaire service built with FastAPI (backend) and React (frontend).
 
-## Features
+## Current Implementation Status
 
-### Phase 1: Questionnaire Module (Foundation)
+### Completed
 
-- ✅ **Database Models**
-  - Questionnaire table with full metadata
-  - Question schema stored as JSON for flexibility
-  - Version history tracking
+- **Phase 1 (Core Questionnaire Module)**
+  - Questionnaire CRUD with soft delete and version snapshots
+  - Flexible JSON-based question schema
+  - Bulk operations and metadata filtering/sorting
+  - Configurable scoring with score calculation APIs
 
-- ✅ **API Endpoints**
-  - `POST /api/questionnaires` - Create questionnaire
-  - `GET /api/questionnaires` - List with pagination, filtering, sorting
-  - `GET /api/questionnaires/:id` - Get single questionnaire
-  - `PUT /api/questionnaires/:id` - Update questionnaire
-  - `DELETE /api/questionnaires/:id` - Soft delete
-  - `POST /api/questionnaires/:id/clone` - Clone questionnaire
-  - `GET /api/questionnaires/:id/versions` - Version history
-  - Bulk operations (delete, status update)
+- **Phase 3 (Trial-Questionnaire Linking)**
+  - Trial-to-questionnaire linking with ordering and required flags
+  - Link-level recurrence and schedule settings
+  - Bulk replace endpoint for trial links
+  - Vendor-scoped trial questionnaire read APIs
 
-- ✅ **Question Types Supported**
-  - Text (single line)
-  - Textarea (multi-line)
-  - Number
-  - Email
-  - Phone
-  - Date
-  - Single Choice (radio buttons)
-  - Multiple Choice (checkboxes)
-  - Dropdown
-  - Rating (stars)
-  - Scale (Likert)
-  - Yes/No
-  - Section Header
+- **Phase 5 (Participant Questionnaire Responses)**
+  - Customer trial questionnaire listing/detail APIs
+  - Draft + submit response flow
+  - Visit-based recurrence window handling
+  - Progress tracking and required-answer validation
+  - Eligibility result API based on required eligibility questionnaires
 
-- ✅ **Questionnaire Builder UI**
-  - Drag-and-drop question reordering
-  - Question type selector
-  - Answer options management
-  - Validation rules
-  - Preview functionality
+### In Progress / Planned
 
-- ✅ **Flexible Scoring System**
-  - Multiple scoring types: Simple Sum, Subscale, Weighted
-  - DASS-21 style subscale scoring (Stress, Anxiety, Depression)
-  - Position-based question assignment (`questionIndices`)
-  - Configurable severity ranges with labels
-  - Score multipliers for clinical questionnaires
-  - Real-time score calculation in preview
-  - Required field validation before submission
+- **Phase 2**: Admin Questionnaire Management Portal enhancements
+- **Phase 4**: Vendor portal workflow expansion
 
-- ✅ **Scoring API Endpoints**
-  - `POST /api/questionnaires/:id/calculate-score` - Calculate scores
-  - `GET /api/questionnaires/:id/scoring-config` - Get scoring config
-  - `PUT /api/questionnaires/:id/scoring-config` - Update scoring config
+## Key Backend Capabilities
+
+- **Questionnaire Models**
+  - `Questionnaire`
+  - `QuestionnaireVersion`
+  - `TrialQuestionnaire`
+  - `ParticipantQuestionnaireResponse`
+
+- **Recurrence Support**
+  - `one_time`, `weekly`, `monthly`, `custom`
+  - Optional `start_at_utc`, `end_at_utc`, `window_duration_minutes`, `max_visits`
+  - Recurrence config with UTC times/slots and optional weekday/day filters
+
+- **Response Lifecycle**
+  - Draft save and final submission
+  - Locked windows for non-active visits
+  - Scoring integration on submit
+  - Eligibility pass/fail storage per response
 
 ## Project Structure
 
-```
+```text
 questionnarie-module/
 ├── backend/
 │   ├── app/
 │   │   ├── models/
-│   │   │   ├── __init__.py
-│   │   │   └── questionnaire.py    # SQLAlchemy models
+│   │   │   └── questionnaire.py
 │   │   ├── routes/
-│   │   │   ├── __init__.py
-│   │   │   └── questionnaires.py   # API endpoints
+│   │   │   ├── questionnaires.py
+│   │   │   ├── trial_questionnaires.py
+│   │   │   └── participant_questionnaires.py
 │   │   ├── schemas/
-│   │   │   ├── __init__.py
-│   │   │   └── questionnaire.py    # Pydantic schemas
+│   │   │   └── questionnaire.py
 │   │   ├── services/
-│   │   │   ├── __init__.py
-│   │   │   └── scoring.py          # Scoring service
-│   │   ├── __init__.py
-│   │   └── database.py             # Database configuration
+│   │   │   └── scoring.py
+│   │   └── database.py
 │   ├── alembic/
-│   │   ├── versions/
-│   │   │   ├── 001_initial_questionnaire.py
-│   │   │   └── 002_add_scoring_config.py
-│   │   ├── env.py
-│   │   └── script.py.mako
-│   ├── alembic.ini
-│   ├── main.py                     # FastAPI application
-│   ├── requirements.txt
-│   └── .env.example
-│
+│   │   └── versions/
+│   │       ├── 001_initial_questionnaire.py
+│   │       ├── 002_add_scoring_config.py
+│   │       ├── 003_add_trial_questionnaires.py
+│   │       ├── 004_add_participant_questionnaire_responses.py
+│   │       └── 005_add_recurrence_and_visit_number.py
+│   ├── main.py
+│   └── requirements.txt
 └── frontend/
-    ├── public/
-    │   └── favicon.svg
-    ├── src/
-    │   ├── components/
-    │   │   ├── Layout.jsx
-    │   │   ├── QuestionEditor.jsx
-    │   │   └── QuestionPreview.jsx
-    │   ├── pages/
-    │   │   ├── QuestionnaireList.jsx
-    │   │   ├── QuestionnaireBuilder.jsx
-    │   │   └── QuestionnaireView.jsx
-    │   ├── services/
-    │   │   └── api.js
-    │   ├── App.jsx
-    │   ├── main.jsx
-    │   └── index.css
-    ├── index.html
-    ├── vite.config.js
-    ├── tailwind.config.js
-    ├── postcss.config.js
-    └── package.json
+    └── src/
 ```
 
 ## Getting Started
@@ -122,125 +89,139 @@ questionnarie-module/
 
 ### Backend Setup
 
-1. Navigate to the backend directory:
+1. Go to backend:
+
    ```bash
    cd questionnarie-module/backend
    ```
 
-2. Create a virtual environment:
+2. Create and activate virtual environment:
+
    ```bash
    python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   source venv/bin/activate
+   # Windows PowerShell:
+   # .\venv\Scripts\Activate.ps1
    ```
 
 3. Install dependencies:
+
    ```bash
    pip install -r requirements.txt
    ```
 
-4. Create `.env` file from example:
+4. Configure environment:
+
    ```bash
    cp .env.example .env
    ```
 
-5. Update the DATABASE_URL in `.env` with your PostgreSQL connection string.
+5. Set `DATABASE_URL` in `.env`.
 
-6. Run database migrations:
+6. Run migrations:
+
    ```bash
    alembic upgrade head
    ```
 
-7. Start the server:
+7. Start API:
+
    ```bash
-   python main.py
-   # Or with uvicorn:
    uvicorn main:app --reload --port 8003
    ```
 
-The API will be available at `http://localhost:8003`.
-API documentation at `http://localhost:8003/docs`.
+Backend docs: `http://localhost:8003/docs`
 
 ### Frontend Setup
 
-1. Navigate to the frontend directory:
+1. Go to frontend:
+
    ```bash
    cd questionnarie-module/frontend
    ```
 
-2. Install dependencies:
+2. Install packages:
+
    ```bash
    npm install
    ```
 
-3. Start the development server:
+3. Start dev server:
+
    ```bash
    npm run dev
    ```
 
-The frontend will be available at `http://localhost:5174`.
+Default frontend URL: `http://localhost:5174`
 
-## API Documentation
+## API Overview
 
-### Questionnaire Endpoints
+### 1) Questionnaire Management
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/questionnaires` | Create a new questionnaire |
-| GET | `/api/questionnaires` | List questionnaires (paginated) |
-| GET | `/api/questionnaires/{id}` | Get questionnaire by ID |
+| --- | --- | --- |
+| POST | `/api/questionnaires` | Create questionnaire |
+| GET | `/api/questionnaires` | List questionnaires |
+| GET | `/api/questionnaires/{id}` | Get questionnaire detail |
 | PUT | `/api/questionnaires/{id}` | Update questionnaire |
 | DELETE | `/api/questionnaires/{id}` | Soft delete questionnaire |
 | POST | `/api/questionnaires/{id}/clone` | Clone questionnaire |
-| GET | `/api/questionnaires/{id}/versions` | Get version history |
-| POST | `/api/questionnaires/bulk-delete` | Bulk delete |
+| GET | `/api/questionnaires/{id}/versions` | List version snapshots |
+| POST | `/api/questionnaires/bulk-delete` | Bulk soft delete |
 | POST | `/api/questionnaires/bulk-status` | Bulk status update |
-| GET | `/api/questionnaires/types/list` | Get questionnaire types |
-| GET | `/api/questionnaires/question-types/list` | Get question types |
+| GET | `/api/questionnaires/types/list` | List questionnaire types |
+| GET | `/api/questionnaires/question-types/list` | List question types |
+| POST | `/api/questionnaires/{id}/calculate-score` | Calculate score |
+| GET | `/api/questionnaires/{id}/scoring-config` | Get scoring config |
+| PUT | `/api/questionnaires/{id}/scoring-config` | Update scoring config |
 
-### Query Parameters (List Endpoint)
+### 2) Trial-Questionnaire Linking (Admin/Vendor)
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| page | int | Page number (default: 1) |
-| page_size | int | Items per page (default: 20, max: 100) |
-| search | string | Search in name and description |
-| type | string | Filter by questionnaire type |
-| status | string | Filter by status (draft, active, archived) |
-| sort_by | string | Sort field (created_at, updated_at, name) |
-| sort_order | string | Sort direction (asc, desc) |
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| POST | `/api/trials/{trial_id}/questionnaires` | Link questionnaire to trial |
+| GET | `/api/trials/{trial_id}/questionnaires` | List trial questionnaire links |
+| PUT | `/api/trials/{trial_id}/questionnaires` | Replace all links for trial |
+| PUT | `/api/trials/{trial_id}/questionnaires/{questionnaire_id}` | Update one link |
+| DELETE | `/api/trials/{trial_id}/questionnaires/{questionnaire_id}` | Unlink questionnaire |
+| GET | `/api/vendor/trials/{trial_id}/questionnaires?vendor_id=...` | Vendor-scoped link list |
+| GET | `/api/vendor/trials/{trial_id}/questionnaires/{questionnaire_id}?vendor_id=...` | Vendor-scoped questionnaire detail |
 
-## Questionnaire Types
+### 3) Participant Questionnaire Flow
 
-- `eligibility` - Eligibility screening
-- `screening` - General screening
-- `baseline` - Baseline assessment
-- `follow_up` - Follow-up visits
-- `adverse_event` - Adverse event reporting
-- `quality_of_life` - Quality of life surveys
-- `custom` - Custom questionnaire
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/api/customer/{customer_id}/trials/{trial_id}/questionnaires` | Participant trial questionnaire summary |
+| GET | `/api/customer/{customer_id}/trials/{trial_id}/questionnaires/{questionnaire_id}` | Participant questionnaire detail |
+| POST | `/api/customer/{customer_id}/trials/{trial_id}/responses` | Create/update draft or submit response |
+| GET | `/api/customer/{customer_id}/trials/{trial_id}/responses/{response_id}` | Fetch one response |
+| GET | `/api/customer/{customer_id}/trials/{trial_id}/eligibility-result` | Trial eligibility result |
 
-## Question Types
+## Supported Questionnaire Types
 
-- `text` - Single line text input
-- `textarea` - Multi-line text input
-- `number` - Numeric input
-- `email` - Email input
-- `phone` - Phone number input
-- `date` - Date picker
-- `single_choice` - Radio buttons
-- `multiple_choice` - Checkboxes
-- `dropdown` - Select dropdown
-- `rating` - Star rating
-- `scale` - Likert scale
-- `yes_no` - Yes/No toggle
-- `section_header` - Section divider
+- `eligibility`
+- `screening`
+- `baseline`
+- `follow_up`
+- `adverse_event`
+- `quality_of_life`
+- `custom`
 
-## Next Phases
+## Supported Question Types
 
-- **Phase 2**: Admin Questionnaire Management Portal
-- **Phase 3**: Trial-Questionnaire Linking Module
-- **Phase 4**: Vendor Portal (Trial-Specific View)
-- **Phase 5**: Participant Portal (Eligibility & Registration)
+- `text`
+- `textarea`
+- `number`
+- `email`
+- `phone`
+- `date`
+- `single_choice`
+- `multiple_choice`
+- `dropdown`
+- `rating`
+- `scale`
+- `yes_no`
+- `section_header`
 
 ## License
 

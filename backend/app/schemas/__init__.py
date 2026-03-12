@@ -18,6 +18,12 @@ from app.schemas.questionnaire import (
     BulkDeleteRequest,
     BulkStatusUpdateRequest,
     QuestionnaireCloneRequest,
+    ResponseStatus,
+    ParticipantQuestionnaireSummary,
+    ParticipantQuestionnaireDetail,
+    ParticipantResponseUpsertRequest,
+    ParticipantResponseItem,
+    TrialEligibilityResult,
 )
 
 __all__ = [
@@ -39,4 +45,10 @@ __all__ = [
     "BulkDeleteRequest",
     "BulkStatusUpdateRequest",
     "QuestionnaireCloneRequest",
+    "ResponseStatus",
+    "ParticipantQuestionnaireSummary",
+    "ParticipantQuestionnaireDetail",
+    "ParticipantResponseUpsertRequest",
+    "ParticipantResponseItem",
+    "TrialEligibilityResult",
 ]

@@ -46,6 +46,13 @@ class QuestionType(str, Enum):
     SECTION_HEADER = "section_header"
 
 
+class RecurrenceType(str, Enum):
+    ONE_TIME = "one_time"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+    CUSTOM = "custom"
+
+
 # =============================================================================
 # Question-related schemas
 # =============================================================================
@@ -382,3 +389,183 @@ class CalculateScoreRequest(BaseModel):
     )
 
     model_config = ConfigDict(extra="ignore")
+
+
+# =============================================================================
+# Trial Questionnaire Linking (Phase 3)
+# =============================================================================
+
+class TrialQuestionnaireBase(BaseModel):
+    questionnaire_id: int = Field(..., ge=1, description="Questionnaire ID")
+    is_required: bool = Field(True, description="Whether questionnaire is mandatory for this trial")
+    display_order: int = Field(0, ge=0, description="Display order within a trial")
+    recurrence_type: RecurrenceType = Field(
+        RecurrenceType.ONE_TIME,
+        description="Recurrence cadence for this questionnaire in a trial",
+    )
+    recurrence_config: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="UTC recurrence rule settings, including time slots and filters",
+    )
+    max_visits: Optional[int] = Field(
+        None,
+        ge=1,
+        description="Maximum number of submitted visits allowed per participant",
+    )
+    window_duration_minutes: Optional[int] = Field(
+        None,
+        ge=1,
+        description="How long each recurrence window remains unlocked",
+    )
+    start_at_utc: Optional[datetime] = Field(
+        None,
+        description="Start boundary for recurrence calculations (UTC)",
+    )
+    end_at_utc: Optional[datetime] = Field(
+        None,
+        description="End boundary for recurrence calculations (UTC)",
+    )
+
+
+class TrialQuestionnaireCreate(TrialQuestionnaireBase):
+    pass
+
+
+class TrialQuestionnaireUpdate(BaseModel):
+    is_required: Optional[bool] = Field(None, description="Whether questionnaire is mandatory")
+    display_order: Optional[int] = Field(None, ge=0, description="Display order")
+    recurrence_type: Optional[RecurrenceType] = Field(None, description="Recurrence cadence")
+    recurrence_config: Optional[Dict[str, Any]] = Field(None, description="Recurrence rule settings")
+    max_visits: Optional[int] = Field(None, ge=1, description="Max visit submissions")
+    window_duration_minutes: Optional[int] = Field(None, ge=1, description="Unlock window duration in minutes")
+    start_at_utc: Optional[datetime] = Field(None, description="UTC start boundary")
+    end_at_utc: Optional[datetime] = Field(None, description="UTC end boundary")
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class TrialQuestionnaireBulkUpsertRequest(BaseModel):
+    questionnaire_links: List[TrialQuestionnaireCreate] = Field(
+        ...,
+        min_length=1,
+        description="Complete list of questionnaire links for a trial"
+    )
+
+
+class TrialQuestionnaireResponse(BaseModel):
+    id: int
+    trial_id: int
+    questionnaire_id: int
+    is_required: bool
+    display_order: int
+    recurrence_type: RecurrenceType
+    recurrence_config: Dict[str, Any] = Field(default_factory=dict)
+    max_visits: Optional[int] = None
+    window_duration_minutes: Optional[int] = None
+    start_at_utc: Optional[datetime] = None
+    end_at_utc: Optional[datetime] = None
+    linked_by: Optional[int]
+    linked_at: datetime
+    updated_at: datetime
+
+    questionnaire_name: Optional[str] = None
+    questionnaire_description: Optional[str] = None
+    questionnaire_type: Optional[QuestionnaireType] = None
+    questionnaire_status: Optional[QuestionnaireStatus] = None
+    question_count: int = 0
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# =============================================================================
+# Participant Questionnaire Responses (Phase 5)
+# =============================================================================
+
+class ResponseStatus(str, Enum):
+    DRAFT = "draft"
+    SUBMITTED = "submitted"
+
+
+class ParticipantQuestionnaireSummary(BaseModel):
+    questionnaire_id: int
+    questionnaire_name: str
+    questionnaire_description: Optional[str] = None
+    questionnaire_type: QuestionnaireType
+    question_count: int = 0
+    is_required: bool
+    display_order: int
+    recurrence_type: RecurrenceType
+    max_visits: Optional[int] = None
+    current_visit_number: int = 1
+    next_visit_number: Optional[int] = None
+    is_locked: bool = False
+    unlocks_at_utc: Optional[datetime] = None
+    locks_at_utc: Optional[datetime] = None
+    submitted_visits: int = 0
+    response_id: Optional[int] = None
+    response_visit_number: Optional[int] = None
+    response_status: Optional[ResponseStatus] = None
+    progress_percent: int = 0
+    eligibility_passed: Optional[bool] = None
+    submitted_at: Optional[datetime] = None
+
+
+class ParticipantQuestionnaireDetail(BaseModel):
+    trial_id: int
+    customer_id: int
+    questionnaire_id: int
+    questionnaire: QuestionnaireResponse
+    recurrence_type: RecurrenceType
+    recurrence_config: Dict[str, Any] = Field(default_factory=dict)
+    max_visits: Optional[int] = None
+    window_duration_minutes: Optional[int] = None
+    current_visit_number: int = 1
+    next_visit_number: Optional[int] = None
+    is_locked: bool = False
+    unlocks_at_utc: Optional[datetime] = None
+    locks_at_utc: Optional[datetime] = None
+    active_visit_number: Optional[int] = None
+    response_id: Optional[int] = None
+    response_visit_number: Optional[int] = None
+    response_status: Optional[ResponseStatus] = None
+    progress_percent: int = 0
+    saved_answers: Dict[str, Any] = Field(default_factory=dict)
+    eligibility_passed: Optional[bool] = None
+    submitted_at: Optional[datetime] = None
+
+
+class ParticipantResponseUpsertRequest(BaseModel):
+    questionnaire_id: int = Field(..., ge=1)
+    responses: Dict[str, Any] = Field(default_factory=dict)
+    submit: bool = Field(False, description="When true, finalizes response")
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class ParticipantResponseItem(BaseModel):
+    id: int
+    customer_id: int
+    trial_id: int
+    questionnaire_id: int
+    questionnaire_version: int
+    visit_number: int
+    status: ResponseStatus
+    responses: Dict[str, Any]
+    progress_percent: int
+    score_result: Optional[Dict[str, Any]] = None
+    eligibility_passed: Optional[bool] = None
+    submitted_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TrialEligibilityResult(BaseModel):
+    customer_id: int
+    trial_id: int
+    is_eligible: bool
+    total_required_questionnaires: int
+    completed_required_questionnaires: int
+    failed_required_questionnaires: int
+    reasons: List[str] = Field(default_factory=list)

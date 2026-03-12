@@ -7,7 +7,7 @@ Tables:
 """
 from sqlalchemy import (
     Column, Integer, String, Text, Boolean, DateTime, 
-    Enum, JSON, ForeignKey, Index
+    Enum, JSON, ForeignKey, Index, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -51,6 +51,20 @@ class QuestionType(str, enum.Enum):
     YES_NO = "yes_no"                  # Boolean yes/no
     FILE_UPLOAD = "file_upload"        # File attachment
     SECTION_HEADER = "section_header"  # Visual separator/header (not a question)
+
+
+class ResponseStatus(str, enum.Enum):
+    """Status of a participant questionnaire response."""
+    DRAFT = "draft"
+    SUBMITTED = "submitted"
+
+
+class RecurrenceType(str, enum.Enum):
+    """Recurrence cadence for trial-linked questionnaires."""
+    ONE_TIME = "one_time"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+    CUSTOM = "custom"
 
 
 class Questionnaire(Base):
@@ -208,3 +222,100 @@ class QuestionnaireVersion(Base):
 
     def __repr__(self):
         return f"<QuestionnaireVersion(questionnaire_id={self.questionnaire_id}, version={self.version_number})>"
+
+
+class TrialQuestionnaire(Base):
+    """
+    Links questionnaires to trials with ordering and required/optional flags.
+
+    `trial_id` references the trial entity in the clinical trials domain.
+    We intentionally keep it as an integer field here (without FK) because
+    trial records are managed by a separate module/database boundary.
+    """
+    __tablename__ = "trial_questionnaires"
+
+    id = Column(Integer, primary_key=True, index=True)
+    trial_id = Column(Integer, nullable=False, index=True)
+    questionnaire_id = Column(Integer, ForeignKey("questionnaires.id"), nullable=False, index=True)
+
+    is_required = Column(Boolean, default=True, nullable=False)
+    display_order = Column(Integer, default=0, nullable=False)
+    recurrence_type = Column(
+        Enum(RecurrenceType, name="recurrence_type_enum", values_callable=lambda obj: [e.value for e in obj]),
+        default=RecurrenceType.ONE_TIME,
+        nullable=False,
+    )
+    recurrence_config = Column(JSON, default=dict, nullable=False)
+    max_visits = Column(Integer, nullable=True)
+    window_duration_minutes = Column(Integer, nullable=True)
+    start_at_utc = Column(DateTime(timezone=True), nullable=True)
+    end_at_utc = Column(DateTime(timezone=True), nullable=True)
+
+    linked_by = Column(Integer, nullable=True)
+    linked_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    questionnaire = relationship("Questionnaire", backref="trial_links")
+
+    __table_args__ = (
+        UniqueConstraint("trial_id", "questionnaire_id", name="uq_trial_questionnaire"),
+        Index("ix_trial_questionnaires_trial_order", "trial_id", "display_order"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<TrialQuestionnaire(id={self.id}, trial_id={self.trial_id}, "
+            f"questionnaire_id={self.questionnaire_id})>"
+        )
+
+
+class ParticipantQuestionnaireResponse(Base):
+    """
+    Participant responses for a trial-linked questionnaire.
+
+    One row per (customer, trial, questionnaire) is maintained and can move
+    from draft -> submitted.
+    """
+    __tablename__ = "participant_questionnaire_responses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, nullable=False, index=True)
+    trial_id = Column(Integer, nullable=False, index=True)
+    questionnaire_id = Column(Integer, ForeignKey("questionnaires.id"), nullable=False, index=True)
+
+    questionnaire_version = Column(Integer, nullable=False, default=1)
+    visit_number = Column(Integer, nullable=False, default=1)
+    status = Column(
+        Enum(ResponseStatus, name="response_status_enum", values_callable=lambda obj: [e.value for e in obj]),
+        nullable=False,
+        default=ResponseStatus.DRAFT,
+        index=True,
+    )
+    responses = Column(JSON, nullable=False, default=dict)
+    progress_percent = Column(Integer, nullable=False, default=0)
+    score_result = Column(JSON, nullable=True)
+    eligibility_passed = Column(Boolean, nullable=True)
+
+    submitted_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    questionnaire = relationship("Questionnaire", backref="participant_responses")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "customer_id",
+            "trial_id",
+            "questionnaire_id",
+            "visit_number",
+            name="uq_participant_trial_questionnaire_visit",
+        ),
+        Index("ix_pqr_customer_trial", "customer_id", "trial_id"),
+        Index("ix_pqr_trial_questionnaire", "trial_id", "questionnaire_id"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<ParticipantQuestionnaireResponse(id={self.id}, customer_id={self.customer_id}, "
+            f"trial_id={self.trial_id}, questionnaire_id={self.questionnaire_id}, status={self.status})>"
+        )
